@@ -4,12 +4,7 @@ require('./db.js')
 var userSchema = new mongoose.Schema({
     username: String,
     salt: String,
-    hash: String,
-    auth: {
-        facebook: String,
-        google:String,
-        site: String
-    }
+    hash: String
 })
 var profileSchema = new mongoose.Schema({
     username: String,

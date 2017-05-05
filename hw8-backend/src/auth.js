@@ -8,7 +8,6 @@ var Profile = require('./model.js').Profile
 
 const isLogin = require('./middleware').isLogin
 const session = require('express-session')
-const passport = require('passport')
 
 const GoogleStrategy = require('passport-google-oauth2').Strategy
 const FacebookStrategy = require('passport-facebook').Strategy
@@ -172,10 +171,6 @@ const password = (req, res) => {
     }
 }
 
-const saveSession = (sid, userObj) => {
-    redis.hmset(sid, userObj)
-}
-
 // handler for PUT /logout
 const putLogout = (req, res) => {
     if (req.isAuthenticated()) {
@@ -190,90 +185,11 @@ const putLogout = (req, res) => {
     res.sendStatus(200)
 }
 
-const fail = (req, res) => {
-    res.sendStatus('401')
-}
-
-passport.serializeUser((user, done) => {
-    done(null, user._id)
-})
-
-passport.deserializeUser((id, done) => {
-    User.findOne({
-        _id: id
-    }).exec(function (err, user) {
-        if (err || !user) {
-            console.log(err)
-        }
-        else {
-            done(null, user)
-        }
-    })
-})
-
-// handler for OAuth
-const handleOAuth = (token, refreshToken, profile,
-    done) => {
-    process.nextTick(function () {
-        const displayName = `${profile.displayName}@${profile.provider}`
-        const email = profile.email ?
-            profile.email : ''
-        const avatar = profile.photos && profile.photos.length > 0 ?
-            profile.photos[0].value : ''
-        const authProp = `auth.${profile.provider}`
-        User.findOne({
-            username: displayName,
-        }).exec(function (err, user) {
-            if (err) {
-                console.log(err)
-                return done(err)
-            }
-            else if (user) {
-                return done(null, user)
-            }
-            else {
-                new Profile({
-                    username: displayName,
-                    email: email,
-                    dob: new Date().getTime(),
-                    following: [displayName],
-                    zipcode: '',
-                    phone: '',
-                    avatar: avatar,
-                    headline: "This user hasn't left a headline..."
-                }).save()
-                var user = {
-                    username: displayName,
-                    salt: '',
-                    hash: '',
-                    auth: { [profile.provider]: profile.displayName }
-                }
-                new User(user).save().then(r => { return done(null, r) })
-            }
-        })
-    })
-}
-
-passport.use(new GoogleStrategy(googleConfig, handleOAuth))
-passport.use(new FacebookStrategy(facebookConfig, handleOAuth))
-
 exports = (app) => {
     app.use(cookieParser())
-    app.use(session({ secret: 'BstMWm893k1FqxhMUCokSoqX' }))
-    app.use(passport.initialize())
-    app.use(passport.session())
     app.put('/password', [isLoggedIn, isLogin], password)
     app.post('/register', register)
     app.post('/login', login)
-    app.use('/auth/google/login', passport.authenticate('google',
-        { scope: ['email'] }))
-    app.use('/auth/google/callback', passport.authenticate('google',
-        { successRedirect: 'http://ricebook-bowen9799.surge.sh', failureRedirect: '/fail' }))
-    app.use('/auth/facebook/login', passport.authenticate('facebook',
-        { scope: ['email'] }))
-    app.use('/auth/facebook/callback', passport.authenticate('facebook',
-        { successRedirect: 'http://ricebook-bowen9799.surge.sh', failureRedirect: '/fail' }))
-    app.use('/fail', fail)
     app.put('/logout', [isLoggedIn, isLogin], putLogout)
 }
 
